@@ -1,0 +1,21 @@
+{
+  "name": "SpikeDocs - Privacy-First Document Converter",
+  "short_name": "SpikeDocs",
+  "description": "Zero-data retention PDF and document converter PWA. All file processing happens locally in your browser.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#DC2626",
+  "icons": [
+    {
+      "src": "/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

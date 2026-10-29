@@ -1,0 +1,124 @@
+
+> spikedocs@1.0.0 dev
+> next dev
+
+▲ Next.js 16.4.3 (Turbopack)
+- Local:         http://localhost:3000
+- Network:       http://192.168.0.2:3000
+✓ Ready in 584ms
+✓ Running next.config.ts took 50ms
+- Cache Components enabled
+- Partial Prefetching enabled
+
+ HEAD / 200 in 724ms (next.js: 311ms, application-code: 414ms)
+ GET / 200 in 148ms (next.js: 3ms, application-code: 145ms)
+[browser] A tree hydrated but some attributes of the server rendered HTML didn't match the client properties. This won't be patched up. This can happen if a SSR-ed Client Component used:
+
+- A server/client branch `if (typeof window !== 'undefined')`.
+- Variable input such as `Date.now()` or `Math.random()` which changes each time it's called.
+- Date formatting in a user's locale which doesn't match the server.
+- External changing data without sending a snapshot of it along with the HTML.
+- Invalid HTML tag nesting.
+
+It can also happen if the client has a browser extension installed which messes with the HTML before React loaded.
+
+https://react.dev/link/hydration-mismatch
+
+  ...
+    <HTTPAccessFallbackBoundary notFound={{...}} forbidden={undefined} unauthorized={undefined}>
+      <HTTPAccessFallbackErrorBoundary pathname="/" notFound={{...}} forbidden={undefined} unauthorized={undefined} ...>
+        <RedirectBoundary>
+          <RedirectErrorBoundary router={{...}}>
+            <InnerLayoutRouter url="/" tree={[...]} params={{}} renderTree={{...}} segmentPath={[...]} ...>
+              <SegmentViewNode type="page" pagePath="src/page.tsx">
+                <SegmentTrieNode>
+                <ClientPageRoot Component={function HomePage} serverProvidedParams={null}>
+                  <HomePage params={Promise} searchParams={Promise}>
+                    <div className="space-y-16...">
+                      <section className="relative p...">
+                        <div className="max-w-4xl ...">
+                          <div>
+                          <h1>
+                          <p>
+                          <div className="max-w-2xl ...">
+                            <div className="relative f...">
+                              <Search>
+                              <input
+                                type="text"
+                                placeholder="Search tools (e.g., Merge PDF, Compress, PDF to Word, OCR)..."
+                                value=""
+                                onChange={function onChange}
+                                className="w-full pl-12 pr-4 py-4 bg-white border border-slate-200 rounded-2xl text-sl..."
+-                               style={{caret-color:"transparent"}}
+                              >
+                          ...
+                      ...
+              ...
+            ...
+
+ GET /merge-pdf 200 in 2.0s (next.js: 26ms, generate-params: 1246ms, application-code: 741ms)
+[browser] A tree hydrated but some attributes of the server rendered HTML didn't match the client properties. This won't be patched up. This can happen if a SSR-ed Client Component used:
+
+- A server/client branch `if (typeof window !== 'undefined')`.
+- Variable input such as `Date.now()` or `Math.random()` which changes each time it's called.
+- Date formatting in a user's locale which doesn't match the server.
+- External changing data without sending a snapshot of it along with the HTML.
+- Invalid HTML tag nesting.
+
+It can also happen if the client has a browser extension installed which messes with the HTML before React loaded.
+
+https://react.dev/link/hydration-mismatch
+
+  ...
+    <ErrorBoundary errorComponent={undefined} errorStyles={undefined} errorScripts={undefined}>
+      <LoadingBoundary name="merge-pdf/" loading={null}>
+        <HTTPAccessFallbackBoundary notFound={undefined} forbidden={undefined} unauthorized={undefined}>
+          <RedirectBoundary>
+            <RedirectErrorBoundary router={{...}}>
+              <InnerLayoutRouter url="/merge-pdf" tree={[...]} params={{toolSlug:"..."}} renderTree={{...}} ...>
+                <SegmentViewNode type="page" pagePath="src/[toolS...">
+                  <SegmentTrieNode>
+                  <ToolPage>
+                    <ToolPageClient slug="merge-pdf">
+                      <div className="py-8 sm:py...">
+                        <script>
+                        <nav>
+                        <div>
+                        <ToolProcessor tool={{id:"merge-pdf", ...}} onProcess={function handleProcessTool}>
+                          <div className="w-full max...">
+                            <div>
+                            <div className="space-y-6">
+                              <div onDragOver={function onDragOver} onDrop={function handleDrop} ...>
+                                <input
+                                  type="file"
+                                  ref={{current:null}}
+                                  onChange={function handleFileChange}
+                                  multiple={true}
+                                  accept=".pdf"
+                                  className="hidden"
+-                                 style={{caret-color:"transparent"}}
+                                >
+                                ...
+                              ...
+                        ...
+                ...
+              ...
+
+ GET / 200 in 288ms (next.js: 6ms, application-code: 282ms)
+Error: Route "/[toolSlug]": Next.js encountered URL data during prerendering or a navigation.
+
+`params` or `searchParams` accessed outside of `<Suspense>` may prevent the navigation from being instant, leading to a slower user experience.
+
+Ways to fix this:
+  - [stream] Provide a placeholder with `<Suspense fallback={...}>` around the data access
+  - [block] Set `export const instant = false` to allow a blocking route
+
+Learn more: https://nextjs.org/docs/messages/instant-shell-url-data
+    at ToolPage (src/app/[toolSlug]/page.tsx:41:24)
+  39 |   params: Promise<{ toolSlug: string }>;
+  40 | }) {
+> 41 |   const { toolSlug } = await params;
+     |                        ^
+  42 |   return <ToolPageClient slug={toolSlug} />;
+  43 | }
+  44 |
