@@ -11,6 +11,7 @@ CREATE TABLE IF NOT EXISTS public.profiles (
   email TEXT UNIQUE NOT NULL,
   role user_role DEFAULT 'user'::user_role NOT NULL,
   is_admin BOOLEAN DEFAULT FALSE NOT NULL,
+  is_pro BOOLEAN DEFAULT FALSE NOT NULL,
   mfa_enabled BOOLEAN DEFAULT FALSE NOT NULL,
   created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
   updated_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
@@ -67,7 +68,7 @@ ALTER TABLE public.daily_usage ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.admin_audit_logs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.admin_allowlist ENABLE ROW LEVEL SECURITY;
 
--- DB Check Constraint: Only emails in admin_allowlist can ever have is_admin = true
+-- DB Check Constraint: Only emails in admin_allowlist can ever have is_admin = true, and Admins automatically get is_pro = true
 CREATE OR REPLACE FUNCTION check_admin_allowlist()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -75,6 +76,8 @@ BEGIN
     IF NOT EXISTS (SELECT 1 FROM public.admin_allowlist WHERE email = NEW.email) THEN
       RAISE EXCEPTION 'Security Policy Error: Email % is not on the admin allowlist.', NEW.email;
     END IF;
+    -- Admins automatically get unlimited Pro features without paying
+    NEW.is_pro := TRUE;
   END IF;
   RETURN NEW;
 END;
