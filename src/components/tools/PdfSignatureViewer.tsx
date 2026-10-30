@@ -25,7 +25,9 @@ export function PdfSignatureViewer({ file, onApplySignature }: PdfSignatureViewe
   // Signature Overlay State (percentage based position)
   const [sigPosition, setSigPosition] = useState({ x: 30, y: 40, width: 25, height: 12 });
   const [isDragging, setIsDragging] = useState(false);
+  const [isResizing, setIsResizing] = useState(false);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
+  const [resizeStart, setResizeStart] = useState({ mouseX: 0, mouseY: 0, startW: 25, startH: 12 });
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -67,20 +69,47 @@ export function PdfSignatureViewer({ file, onApplySignature }: PdfSignatureViewe
     }
   };
 
+  const handleResizeStart = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
+    setIsResizing(true);
+    setResizeStart({
+      mouseX: e.clientX,
+      mouseY: e.clientY,
+      startW: sigPosition.width,
+      startH: sigPosition.height,
+    });
+  };
+
   const handleMouseMove = (e: React.MouseEvent) => {
-    if (!isDragging || !containerRef.current) return;
+    if (!containerRef.current) return;
     const rect = containerRef.current.getBoundingClientRect();
-    const mouseXPct = ((e.clientX - rect.left) / rect.width) * 100;
-    const mouseYPct = ((e.clientY - rect.top) / rect.height) * 100;
 
-    const newX = Math.max(0, Math.min(100 - sigPosition.width, mouseXPct - dragOffset.x));
-    const newY = Math.max(0, Math.min(100 - sigPosition.height, mouseYPct - dragOffset.y));
+    if (isResizing) {
+      const deltaXPct = ((e.clientX - resizeStart.mouseX) / rect.width) * 100;
+      const deltaYPct = ((e.clientY - resizeStart.mouseY) / rect.height) * 100;
 
-    setSigPosition(prev => ({ ...prev, x: newX, y: newY }));
+      const newWidth = Math.max(5, Math.min(100 - sigPosition.x, resizeStart.startW + deltaXPct));
+      const newHeight = Math.max(3, Math.min(100 - sigPosition.y, resizeStart.startH + deltaYPct));
+
+      setSigPosition(prev => ({ ...prev, width: newWidth, height: newHeight }));
+      return;
+    }
+
+    if (isDragging) {
+      const mouseXPct = ((e.clientX - rect.left) / rect.width) * 100;
+      const mouseYPct = ((e.clientY - rect.top) / rect.height) * 100;
+
+      const newX = Math.max(0, Math.min(100 - sigPosition.width, mouseXPct - dragOffset.x));
+      const newY = Math.max(0, Math.min(100 - sigPosition.height, mouseYPct - dragOffset.y));
+
+      setSigPosition(prev => ({ ...prev, x: newX, y: newY }));
+    }
   };
 
   const handleMouseUp = () => {
     setIsDragging(false);
+    setIsResizing(false);
   };
 
   const handleSaveSignature = async () => {
@@ -188,8 +217,13 @@ export function PdfSignatureViewer({ file, onApplySignature }: PdfSignatureViewe
           >
             <img src={signatureDataUrl} alt="Signature" className="max-w-full max-h-full object-contain pointer-events-none" />
             <span className="absolute -top-6 left-0 bg-red-600 text-white text-[9px] font-bold px-1.5 py-0.5 rounded shadow-xs">
-              Drag to position
+              Drag to position / Resize
             </span>
+            {/* Resize handle */}
+            <div
+              onMouseDown={handleResizeStart}
+              className="absolute -bottom-1.5 -right-1.5 w-4 h-4 bg-red-600 border-2 border-white rounded-full cursor-se-resize hover:scale-125 transition-transform"
+            />
           </div>
         )}
       </div>
