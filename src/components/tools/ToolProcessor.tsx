@@ -21,9 +21,15 @@ export function ToolProcessor({ tool, onProcess }: ToolProcessorProps) {
   const [error, setError] = useState<string | null>(null);
 
   // Custom tool options states
+  const [splitMethod, setSplitMethod] = useState<'every' | 'range'>('range');
   const [splitRange, setSplitRange] = useState('1-3');
   const [watermarkText, setWatermarkText] = useState('CONFIDENTIAL');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [compressionLevel, setCompressionLevel] = useState<'low' | 'medium' | 'high'>('medium');
+  const [pageNumberPosition, setPageNumberPosition] = useState<'bottom-center' | 'bottom-right' | 'top-center' | 'top-right'>('bottom-center');
+  const [pageNumberStart, setPageNumberStart] = useState<number>(1);
+  const [urlInput, setUrlInput] = useState<string>('https://');
   const [targetLang, setTargetLang] = useState('Spanish');
   const [summaryStyle, setSummaryStyle] = useState<'executive' | 'bullet' | 'concise'>('executive');
 
@@ -62,13 +68,23 @@ export function ToolProcessor({ tool, onProcess }: ToolProcessorProps) {
     setError(null);
     setProgressMessage('Processing locally in browser memory...');
 
+    if (tool.id === 'protect-pdf' && password !== confirmPassword) {
+      setError('Passwords do not match. Please re-enter your password.');
+      setIsProcessing(false);
+      return;
+    }
+
     try {
       const options = {
-        splitRange,
+        splitRange: splitMethod === 'every' ? 'all' : splitRange,
         watermarkText,
         password,
+        compressionLevel,
+        pageNumberPosition,
+        pageNumberStart,
         targetLang,
         summaryStyle,
+        url: urlInput,
       };
 
       const res = await onProcess(files, options);
@@ -212,13 +228,100 @@ export function ToolProcessor({ tool, onProcess }: ToolProcessorProps) {
                 <span className="text-xs font-bold text-slate-600 uppercase tracking-wider block">Tool Configuration</span>
 
                 {tool.id === 'split-pdf' && (
+                  <div className="space-y-3">
+                    <label className="block text-xs font-semibold text-slate-700">Split Method</label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setSplitMethod('every')}
+                        className={`py-2 px-3 text-xs font-bold rounded-xl border transition ${
+                          splitMethod === 'every' ? 'bg-red-600 text-white border-red-600' : 'bg-white text-slate-700 border-slate-300'
+                        }`}
+                      >
+                        Split every page
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setSplitMethod('range')}
+                        className={`py-2 px-3 text-xs font-bold rounded-xl border transition ${
+                          splitMethod === 'range' ? 'bg-red-600 text-white border-red-600' : 'bg-white text-slate-700 border-slate-300'
+                        }`}
+                      >
+                        Split by range
+                      </button>
+                    </div>
+                    {splitMethod === 'range' && (
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-700 mb-1">Page Ranges (e.g. 1-5, 8, 10)</label>
+                        <input
+                          type="text"
+                          value={splitRange}
+                          onChange={(e) => setSplitRange(e.target.value)}
+                          placeholder="e.g. 1-5, 8, 10"
+                          className="w-full px-4 py-2.5 bg-white border border-slate-300 rounded-xl text-sm font-mono focus:ring-2 focus:ring-red-500 outline-none"
+                        />
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {tool.id === 'compress-pdf' && (
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1">Page Ranges (e.g. 1-3, 5, 7)</label>
+                    <label className="block text-xs font-semibold text-slate-700 mb-2">Compression Level</label>
+                    <div className="grid grid-cols-3 gap-2">
+                      {(['low', 'medium', 'high'] as const).map(level => (
+                        <button
+                          key={level}
+                          type="button"
+                          onClick={() => setCompressionLevel(level)}
+                          className={`py-2 px-3 text-xs font-bold rounded-xl border transition capitalize ${
+                            compressionLevel === level ? 'bg-red-600 text-white border-red-600' : 'bg-white text-slate-700 border-slate-300'
+                          }`}
+                        >
+                          {level}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {tool.id === 'page-numbers' && (
+                  <div className="space-y-3">
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">Position</label>
+                      <select
+                        value={pageNumberPosition}
+                        onChange={(e: any) => setPageNumberPosition(e.target.value)}
+                        className="w-full px-4 py-2 bg-white border border-slate-300 rounded-xl text-xs font-semibold outline-none"
+                      >
+                        <option value="bottom-center">Bottom Center</option>
+                        <option value="bottom-right">Bottom Right</option>
+                        <option value="top-center">Top Center</option>
+                        <option value="top-right">Top Right</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">Starting Number</label>
+                      <input
+                        type="number"
+                        min={1}
+                        value={pageNumberStart}
+                        onChange={(e) => setPageNumberStart(parseInt(e.target.value, 10) || 1)}
+                        className="w-full px-4 py-2 bg-white border border-slate-300 rounded-xl text-xs font-semibold outline-none"
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {tool.id === 'html-to-pdf' && (
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">Webpage URL</label>
                     <input
-                      type="text"
-                      value={splitRange}
-                      onChange={(e) => setSplitRange(e.target.value)}
-                      className="w-full px-4 py-2.5 bg-white border border-slate-300 rounded-xl text-sm font-mono focus:ring-2 focus:ring-red-500 outline-none"
+                      type="url"
+                      value={urlInput}
+                      onChange={(e) => setUrlInput(e.target.value)}
+                      placeholder="https://example.com"
+                      className="w-full px-4 py-2 bg-white border border-slate-300 rounded-xl text-xs font-semibold outline-none"
                     />
                   </div>
                 )}
@@ -235,7 +338,32 @@ export function ToolProcessor({ tool, onProcess }: ToolProcessorProps) {
                   </div>
                 )}
 
-                {(tool.id === 'protect-pdf' || tool.id === 'unlock-pdf') && (
+                {tool.id === 'protect-pdf' && (
+                  <div className="space-y-3">
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">Document Password</label>
+                      <input
+                        type="password"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        placeholder="Enter password..."
+                        className="w-full px-4 py-2.5 bg-white border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-red-500 outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">Confirm Password</label>
+                      <input
+                        type="password"
+                        value={confirmPassword}
+                        onChange={(e) => setConfirmPassword(e.target.value)}
+                        placeholder="Confirm password..."
+                        className="w-full px-4 py-2.5 bg-white border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-red-500 outline-none"
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {tool.id === 'unlock-pdf' && (
                   <div>
                     <label className="block text-xs font-semibold text-slate-700 mb-1">Document Password</label>
                     <input
