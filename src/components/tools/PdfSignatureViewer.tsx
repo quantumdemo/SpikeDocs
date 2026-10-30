@@ -212,21 +212,39 @@ export function PdfSignatureViewer({ file, onApplySignature }: PdfSignatureViewe
           </button>
         </div>
 
-        {/* Page selector */}
+        {/* Page selector with Direct Page Jump Input */}
         {numPages > 1 && (
           <div className="flex items-center gap-2 text-xs font-bold text-slate-700">
             <button
               disabled={currentPage === 1}
               onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-              className="p-1.5 bg-white border border-slate-200 rounded-lg disabled:opacity-40"
+              className="p-1.5 bg-white border border-slate-200 rounded-lg disabled:opacity-40 hover:bg-slate-50 transition"
+              title="Previous Page"
             >
               <ChevronLeft className="w-4 h-4" />
             </button>
-            <span>Page {currentPage} of {numPages}</span>
+            <div className="flex items-center gap-1.5">
+              <span>Page</span>
+              <input
+                type="number"
+                min={1}
+                max={numPages}
+                value={currentPage}
+                onChange={(e) => {
+                  const val = parseInt(e.target.value, 10);
+                  if (!isNaN(val) && val >= 1 && val <= numPages) {
+                    setCurrentPage(val);
+                  }
+                }}
+                className="w-14 px-2 py-1 border border-slate-300 rounded-lg text-center bg-white text-slate-900 font-bold font-mono outline-none focus:ring-2 focus:ring-red-500 shadow-xs"
+              />
+              <span>of {numPages}</span>
+            </div>
             <button
               disabled={currentPage === numPages}
               onClick={() => setCurrentPage(prev => Math.min(numPages, prev + 1))}
-              className="p-1.5 bg-white border border-slate-200 rounded-lg disabled:opacity-40"
+              className="p-1.5 bg-white border border-slate-200 rounded-lg disabled:opacity-40 hover:bg-slate-50 transition"
+              title="Next Page"
             >
               <ChevronRight className="w-4 h-4" />
             </button>
@@ -247,10 +265,10 @@ export function PdfSignatureViewer({ file, onApplySignature }: PdfSignatureViewe
         </button>
       </div>
 
-      {/* PDF Scroll & Pan Container */}
+      {/* PDF Scroll & Pan Container (Horizontal & Vertical Native Panning) */}
       <div
         ref={scrollWrapperRef}
-        className="w-full max-h-[60vh] sm:max-h-[70vh] overflow-auto border border-slate-300 rounded-2xl p-4 bg-slate-200 touch-pan-x touch-pan-y"
+        className="w-full max-h-[65vh] overflow-x-auto overflow-y-auto border border-slate-300 rounded-2xl p-4 bg-slate-200 text-center"
       >
         <div
           ref={containerRef}
@@ -258,9 +276,9 @@ export function PdfSignatureViewer({ file, onApplySignature }: PdfSignatureViewe
           onMouseUp={handlePointerUp}
           onTouchMove={handlePointerMove}
           onTouchEnd={handlePointerUp}
-          className="relative mx-auto border border-slate-400 rounded-xl overflow-hidden shadow-lg max-w-fit select-none bg-white"
+          className="relative inline-block text-left border border-slate-400 rounded-xl overflow-hidden shadow-lg select-none bg-white"
         >
-          <canvas ref={canvasRef} className="block mx-auto" />
+          <canvas ref={canvasRef} className="block" />
 
           {signatureDataUrl && (
             <div
