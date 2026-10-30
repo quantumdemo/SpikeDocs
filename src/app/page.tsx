@@ -1,27 +1,33 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { TOOL_CATEGORIES, TOOLS_CONFIG } from '@/config/tools';
-import { SpikeDocsLogo } from '@/components/brand/SpikeDocsLogo';
 import {
   ShieldCheck,
   Zap,
-  Lock,
   Sparkles,
   ArrowRight,
   Search,
   CheckCircle,
-  FileCheck,
-  Smartphone,
-  Globe,
-  Layers,
-  Star
+  FileCheck
 } from 'lucide-react';
 
-export default function HomePage() {
+function HomeContent() {
+  const searchParams = useSearchParams();
+  const categoryParam = searchParams.get('category');
+
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
+
+  useEffect(() => {
+    if (categoryParam) {
+      setSelectedCategory(categoryParam);
+    } else {
+      setSelectedCategory('all');
+    }
+  }, [categoryParam]);
 
   const filteredTools = TOOLS_CONFIG.filter((tool) => {
     const matchesSearch =
@@ -193,5 +199,13 @@ export default function HomePage() {
         </div>
       </section>
     </div>
+  );
+}
+
+export default function HomePage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen p-8 text-center text-slate-500">Loading SpikeDocs...</div>}>
+      <HomeContent />
+    </Suspense>
   );
 }

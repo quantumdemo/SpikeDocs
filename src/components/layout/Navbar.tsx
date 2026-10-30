@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from 'react';
+import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { SpikeDocsLogo } from '@/components/brand/SpikeDocsLogo';
@@ -12,15 +12,10 @@ import {
   ShieldCheck,
   Sparkles,
   Home,
-  Star,
-  Clock,
   Compass,
   Menu,
   X,
-  Plus,
-  Lock,
   User,
-  Shield
 } from 'lucide-react';
 
 export function Sidebar({ isOpen, setIsOpen }: { isOpen: boolean; setIsOpen: (val: boolean) => void }) {
@@ -28,14 +23,13 @@ export function Sidebar({ isOpen, setIsOpen }: { isOpen: boolean; setIsOpen: (va
 
   const navItems = [
     { name: 'Home', href: '/', icon: Home },
-    { name: 'Organize', href: '/#organize', icon: FolderTree },
-    { name: 'Optimize', href: '/#optimize', icon: Zap },
-    { name: 'Convert', href: '/#convert', icon: ArrowLeftRight },
-    { name: 'Edit', href: '/#edit', icon: Edit3 },
-    { name: 'Security', href: '/#security', icon: ShieldCheck },
-    { name: 'AI & OCR', href: '/#intelligence', icon: Sparkles },
+    { name: 'Organize', href: '/?category=organize', icon: FolderTree },
+    { name: 'Optimize', href: '/?category=optimize', icon: Zap },
+    { name: 'Convert', href: '/?category=convert', icon: ArrowLeftRight },
+    { name: 'Edit', href: '/?category=edit', icon: Edit3 },
+    { name: 'Security', href: '/?category=security', icon: ShieldCheck },
+    { name: 'AI & OCR', href: '/?category=intelligence', icon: Sparkles },
     { name: 'Resources', href: '/resources', icon: Compass },
-    { name: 'Admin', href: '/admin', icon: Shield },
   ];
 
   return (
@@ -67,9 +61,6 @@ export function Sidebar({ isOpen, setIsOpen }: { isOpen: boolean; setIsOpen: (va
         </div>
 
         <div className="flex-1 overflow-y-auto py-4 px-3 space-y-1">
-          <div className="px-3 pb-2 text-xs font-semibold text-slate-400 uppercase tracking-wider">
-            Navigation
-          </div>
           {navItems.map((item) => {
             const Icon = item.icon;
             const isActive = pathname === item.href;
@@ -119,7 +110,7 @@ export function BottomNav() {
 
   const items = [
     { name: 'Home', href: '/', icon: Home },
-    { name: 'Discover', href: '/#organize', icon: Compass },
+    { name: 'Discover', href: '/resources', icon: Compass },
     { name: 'Pricing', href: '/pricing', icon: Sparkles },
     { name: 'Account', href: '/auth/signin', icon: User },
   ];
