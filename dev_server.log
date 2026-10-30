@@ -122,3 +122,68 @@ Learn more: https://nextjs.org/docs/messages/instant-shell-url-data
   42 |   return <ToolPageClient slug={toolSlug} />;
   43 | }
   44 |
+ GET / 200 in 696ms (next.js: 64ms, application-code: 632ms)
+[browser] A tree hydrated but some attributes of the server rendered HTML didn't match the client properties. This won't be patched up. This can happen if a SSR-ed Client Component used:
+
+- A server/client branch `if (typeof window !== 'undefined')`.
+- Variable input such as `Date.now()` or `Math.random()` which changes each time it's called.
+- Date formatting in a user's locale which doesn't match the server.
+- External changing data without sending a snapshot of it along with the HTML.
+- Invalid HTML tag nesting.
+
+It can also happen if the client has a browser extension installed which messes with the HTML before React loaded.
+
+https://react.dev/link/hydration-mismatch
+
+  ...
+    <RedirectErrorBoundary router={{...}}>
+      <InnerLayoutRouter url="/" tree={[...]} params={{}} renderTree={{...}} segmentPath={[...]} ...>
+        <SegmentViewNode type="page" pagePath="src/page.tsx">
+          <SegmentTrieNode>
+          <ClientPageRoot Component={function HomePage} serverProvidedParams={null}>
+            <HomePage params={Promise} searchParams={Promise}>
+              <Suspense fallback={<div>}>
+                <HomeContent>
+                  <div className="space-y-16...">
+                    <section className="relative p...">
+                      <div className="max-w-4xl ...">
+                        <div>
+                        <h1>
+                        <p>
+                        <div className="max-w-2xl ...">
+                          <div className="relative f...">
+                            <Search>
+                            <input
+                              type="text"
+                              placeholder="Search tools (e.g., Merge PDF, Compress, PDF to Word, OCR)..."
+                              value=""
+                              onChange={function onChange}
+                              className="w-full pl-12 pr-4 py-4 bg-white border border-slate-200 rounded-2xl text-slat..."
+-                             style={{caret-color:"transparent"}}
+                            >
+                        ...
+                    ...
+        ...
+      ...
+
+Warning: Please use the `legacy` build in Node.js environments.
+ GET /merge-pdf 200 in 357ms (next.js: 8ms, generate-params: 81ms, application-code: 267ms)
+Warning: Please use the `legacy` build in Node.js environments.
+Error: Route "/[toolSlug]": Next.js encountered URL data during prerendering or a navigation.
+
+`params` or `searchParams` accessed outside of `<Suspense>` may prevent the navigation from being instant, leading to a slower user experience.
+
+Ways to fix this:
+  - [stream] Provide a placeholder with `<Suspense fallback={...}>` around the data access
+  - [block] Set `export const instant = false` to allow a blocking route
+
+Learn more: https://nextjs.org/docs/messages/instant-shell-url-data
+    at ToolPage (src/app/[toolSlug]/page.tsx:41:24)
+  39 |   params: Promise<{ toolSlug: string }>;
+  40 | }) {
+> 41 |   const { toolSlug } = await params;
+     |                        ^
+  42 |   return <ToolPageClient slug={toolSlug} />;
+  43 | }
+  44 |
+ GET / 200 in 142ms (next.js: 2ms, application-code: 140ms)
