@@ -95,6 +95,7 @@ export function Sidebar({ isOpen, setIsOpen }: { isOpen: boolean; setIsOpen: (va
             </p>
             <Link
               href="/pricing"
+              onClick={() => setIsOpen(false)}
               className="block w-full text-center py-1.5 bg-white text-red-600 font-bold text-xs rounded-lg shadow-xs hover:bg-red-50 transition-colors"
             >
               Upgrade Now
