@@ -160,15 +160,33 @@ export function RedactionOverlayViewer({ file, onApplyRedaction }: RedactionOver
             <button
               disabled={currentPage === 1}
               onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-              className="p-1.5 bg-white border border-slate-200 rounded-lg disabled:opacity-40"
+              className="p-1.5 bg-white border border-slate-200 rounded-lg disabled:opacity-40 hover:bg-slate-50 transition"
+              title="Previous Page"
             >
               <ChevronLeft className="w-4 h-4" />
             </button>
-            <span>Page {currentPage} of {numPages}</span>
+            <div className="flex items-center gap-1.5">
+              <span>Page</span>
+              <input
+                type="number"
+                min={1}
+                max={numPages}
+                value={currentPage}
+                onChange={(e) => {
+                  const val = parseInt(e.target.value, 10);
+                  if (!isNaN(val) && val >= 1 && val <= numPages) {
+                    setCurrentPage(val);
+                  }
+                }}
+                className="w-14 px-2 py-1 border border-slate-300 rounded-lg text-center bg-white text-slate-900 font-bold font-mono outline-none focus:ring-2 focus:ring-red-500 shadow-xs"
+              />
+              <span>of {numPages}</span>
+            </div>
             <button
               disabled={currentPage === numPages}
               onClick={() => setCurrentPage(prev => Math.min(numPages, prev + 1))}
-              className="p-1.5 bg-white border border-slate-200 rounded-lg disabled:opacity-40"
+              className="p-1.5 bg-white border border-slate-200 rounded-lg disabled:opacity-40 hover:bg-slate-50 transition"
+              title="Next Page"
             >
               <ChevronRight className="w-4 h-4" />
             </button>
