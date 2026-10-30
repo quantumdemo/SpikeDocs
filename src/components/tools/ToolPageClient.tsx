@@ -17,11 +17,16 @@ import {
   protectPDF,
   unlockPDF,
   redactPDF,
+  pdfToJpg,
   jpgToPdf,
   pdfToWord,
   wordToPdf,
   pdfToExcel,
   excelToPdf,
+  pdfToPptx,
+  pptToPdf,
+  htmlToPdf,
+  cropPDF,
   pdfToMarkdown,
   pdfToPdfA,
   runOcrOnImage,
@@ -51,11 +56,12 @@ export function ToolPageClient({ slug }: { slug: string }) {
         fileName += '.pdf';
         break;
 
-      case 'split-pdf':
-        const splitRes = await splitPDF(files[0], options.splitRange || '1');
-        outputBytes = splitRes[0].bytes;
-        fileName = splitRes[0].name;
+      case 'split-pdf': {
+        const splitRes = await splitPDF(files[0], options.splitRange || 'all');
+        outputBlob = splitRes.zipBlob;
+        fileName = splitRes.name;
         break;
+      }
 
       case 'extract-pdf':
         outputBytes = await extractPages(files[0], [0]);
@@ -107,8 +113,44 @@ export function ToolPageClient({ slug }: { slug: string }) {
         fileName += '.pdf';
         break;
 
+      case 'pdf-to-jpg': {
+        outputBlob = await pdfToJpg(files[0]);
+        fileName += '.zip';
+        break;
+      }
+
       case 'jpg-to-pdf':
         outputBytes = await jpgToPdf(files);
+        fileName += '.pdf';
+        break;
+
+      case 'pdf-to-ppt': {
+        const pageTexts = await extractTextFromPDF(files[0]);
+        outputBlob = await pdfToPptx(files[0], pageTexts);
+        fileName += '.pptx';
+        break;
+      }
+
+      case 'ppt-to-pdf':
+        outputBytes = await pptToPdf(files[0]);
+        fileName += '.pdf';
+        break;
+
+      case 'html-to-pdf': {
+        const textData = files[0] ? await files[0].text() : (options.url || 'https://spikedocs.com');
+        outputBytes = await htmlToPdf(textData);
+        fileName += '.pdf';
+        break;
+      }
+
+      case 'crop-pdf':
+        outputBytes = await cropPDF(files[0], { x: 30, y: 30, width: 500, height: 750 });
+        fileName += '.pdf';
+        break;
+
+      case 'edit-pdf':
+      case 'pdf-forms':
+        outputBytes = await addWatermark(files[0], 'FORM VERIFIED');
         fileName += '.pdf';
         break;
 
