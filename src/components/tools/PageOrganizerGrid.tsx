@@ -25,6 +25,7 @@ export function PageOrganizerGrid({ file, mode, onSave }: PageOrganizerGridProps
   const [pages, setPages] = useState<PageThumbnail[]>([]);
   const [selectedIndexes, setSelectedIndexes] = useState<number[]>([]);
   const [loading, setLoading] = useState(true);
+  const [draggedIdx, setDraggedIdx] = useState<number | null>(null);
 
   useEffect(() => {
     async function loadThumbnails() {
@@ -78,6 +79,23 @@ export function PageOrganizerGrid({ file, mode, onSave }: PageOrganizerGridProps
     );
   };
 
+  const handleDragStart = (idx: number) => {
+    setDraggedIdx(idx);
+  };
+
+  const handleDragOver = (e: React.DragEvent, idx: number) => {
+    e.preventDefault();
+    if (draggedIdx === null || draggedIdx === idx) return;
+
+    setPages(prev => {
+      const updated = [...prev];
+      const [movedItem] = updated.splice(draggedIdx, 1);
+      updated.splice(idx, 0, movedItem);
+      return updated;
+    });
+    setDraggedIdx(idx);
+  };
+
   const handleApplyChanges = async () => {
     if (mode === 'extract') {
       const bytes = await extractPages(file, selectedIndexes);
@@ -124,10 +142,13 @@ export function PageOrganizerGrid({ file, mode, onSave }: PageOrganizerGridProps
           return (
             <div
               key={page.originalIndex}
+              draggable={mode === 'organize'}
+              onDragStart={() => handleDragStart(idx)}
+              onDragOver={(e) => handleDragOver(e, idx)}
               onClick={() => mode === 'extract' && toggleSelectPage(page.originalIndex)}
               className={`relative bg-white border-2 rounded-2xl p-3 flex flex-col items-center transition cursor-pointer shadow-xs group ${
                 mode === 'extract' && isSelected ? 'border-red-600 bg-red-50/20 ring-2 ring-red-500/20' : 'border-slate-200 hover:border-red-300'
-              }`}
+              } ${draggedIdx === idx ? 'opacity-50 scale-95 border-dashed border-red-500' : ''}`}
             >
               <span className="absolute top-2 left-2 bg-slate-900/80 text-white text-[10px] font-extrabold px-2 py-0.5 rounded-full z-10">
                 Page {idx + 1}
