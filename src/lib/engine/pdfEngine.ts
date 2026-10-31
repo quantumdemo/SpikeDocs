@@ -760,6 +760,45 @@ export async function generateAISummary(text: string, style: 'bullet' | 'executi
  */
 export async function translateText(text: string, targetLanguage: string): Promise<string> {
   const translationsMap: Record<string, (t: string) => string> = {
+    English: (t) => {
+      // Handles common Yoruba/Hausa/Igbo/Spanish/French terms converting to English
+      return t
+        .replace(/\bàti\b|\bda\b|\bna\b|\by\b|\bet\b|\bund\b/gi, 'and')
+        .replace(/\bni\b|\bya\b|\byi\b|\bes\b|\best\b|\bist\b/gi, 'is')
+        .replace(/\bẹ\b|\boo\b|\bwani\b|\bel\b|\ble\b|\bdas\b/gi, 'the')
+        .replace(/\bọrọ\b|\bmagana\b|\bokwu\b/gi, 'word')
+        .replace(/\biwé\b|\btakarda\b|\bakwukwo\b/gi, 'document');
+    },
+    Yoruba: (t) => {
+      return t
+        .replace(/\bthe\b/gi, 'ẹ')
+        .replace(/\band\b/gi, 'àti')
+        .replace(/\bis\b/gi, 'jẹ́')
+        .replace(/\bdocument\b/gi, 'ìwé')
+        .replace(/\bwelcome\b/gi, 'ẹkú àbọ̀')
+        .replace(/\bhello\b/gi, 'báwo')
+        .replace(/\buser\b/gi, 'olùmúlò');
+    },
+    Hausa: (t) => {
+      return t
+        .replace(/\bthe\b/gi, 'wani')
+        .replace(/\band\b/gi, 'da')
+        .replace(/\bis\b/gi, 'ne')
+        .replace(/\bdocument\b/gi, 'takarda')
+        .replace(/\bwelcome\b/gi, 'barka da zuwa')
+        .replace(/\bhello\b/gi, 'sannu')
+        .replace(/\buser\b/gi, 'mai amfani');
+    },
+    Igbo: (t) => {
+      return t
+        .replace(/\bthe\b/gi, 'nke')
+        .replace(/\band\b/gi, 'na')
+        .replace(/\bis\b/gi, 'bụ')
+        .replace(/\bdocument\b/gi, 'akwụkwọ')
+        .replace(/\bwelcome\b/gi, 'nnọọ')
+        .replace(/\bhello\b/gi, 'ndeewo')
+        .replace(/\buser\b/gi, 'onye ọrụ');
+    },
     Spanish: (t) => t.replace(/\bthe\b/gi, 'el').replace(/\band\b/gi, 'y').replace(/\bis\b/gi, 'es'),
     French: (t) => t.replace(/\bthe\b/gi, 'le').replace(/\band\b/gi, 'et').replace(/\bis\b/gi, 'est'),
     German: (t) => t.replace(/\bthe\b/gi, 'das').replace(/\band\b/gi, 'und').replace(/\bis\b/gi, 'ist'),
