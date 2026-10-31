@@ -24,13 +24,22 @@ export function ToolProcessor({ tool, onProcess }: ToolProcessorProps) {
   // Custom tool options states
   const [splitMethod, setSplitMethod] = useState<'every' | 'range'>('range');
   const [splitRange, setSplitRange] = useState('1-3');
+  const [watermarkType, setWatermarkType] = useState<'text' | 'confidential' | 'draft'>('text');
   const [watermarkText, setWatermarkText] = useState('CONFIDENTIAL');
+  const [watermarkOpacity, setWatermarkOpacity] = useState<number>(30);
+  const [watermarkRotation, setWatermarkRotation] = useState<number>(45);
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [compressionLevel, setCompressionLevel] = useState<'low' | 'medium' | 'high'>('medium');
   const [targetKb, setTargetKb] = useState<string>('');
   const [pageNumberPosition, setPageNumberPosition] = useState<'bottom-center' | 'bottom-right' | 'top-center' | 'top-right'>('bottom-center');
   const [pageNumberStart, setPageNumberStart] = useState<number>(1);
+  const [imageQuality, setImageQuality] = useState<'high' | 'medium' | 'standard'>('high');
+  const [pageSize, setPageSize] = useState<'A4' | 'Letter' | 'Fit'>('A4');
+  const [pageOrientation, setPageOrientation] = useState<'portrait' | 'landscape'>('portrait');
+  const [ocrLang, setOcrLang] = useState<string>('eng');
+  const [repairMode, setRepairMode] = useState<'structure' | 'stream'>('structure');
+  const [conversionLayout, setConversionLayout] = useState<'standard' | 'enhanced'>('enhanced');
   const [urlInput, setUrlInput] = useState<string>('https://');
   const [targetLang, setTargetLang] = useState('Spanish');
   const [summaryStyle, setSummaryStyle] = useState<'executive' | 'bullet' | 'concise'>('executive');
@@ -126,12 +135,20 @@ export function ToolProcessor({ tool, onProcess }: ToolProcessorProps) {
     try {
       const options = {
         splitRange: splitMethod === 'every' ? 'all' : splitRange,
-        watermarkText,
+        watermarkText: watermarkType === 'confidential' ? 'CONFIDENTIAL' : watermarkType === 'draft' ? 'DRAFT' : watermarkText,
+        watermarkOpacity: watermarkOpacity / 100,
+        watermarkRotation,
         password,
         compressionLevel,
         targetKb: targetKb ? parseInt(targetKb, 10) : undefined,
         pageNumberPosition,
         pageNumberStart,
+        imageQuality,
+        pageSize,
+        pageOrientation,
+        ocrLang,
+        repairMode,
+        conversionLayout,
         targetLang,
         summaryStyle,
         url: urlInput,
@@ -308,18 +325,68 @@ export function ToolProcessor({ tool, onProcess }: ToolProcessorProps) {
                   <button onClick={() => setFiles([])} className="text-xs text-red-600 hover:underline font-semibold">Clear all</button>
                 </div>
                 <div className="divide-y divide-slate-200 max-h-48 overflow-y-auto">
-                  {files.map((file, idx) => (
-                    <div key={idx} className="py-2.5 flex items-center justify-between text-sm">
-                      <div className="flex items-center gap-2.5 overflow-hidden">
-                        <File className="w-4 h-4 text-red-600 shrink-0" />
-                        <span className="truncate font-medium text-slate-700">{file.name}</span>
-                        <span className="text-xs text-slate-400 shrink-0">({(file.size / (1024 * 1024)).toFixed(2)} MB)</span>
+                      {files.map((file, idx) => {
+                        const moveUp = (index: number) => {
+                          if (index === 0) return;
+                          setFiles(prev => {
+                            const updated = [...prev];
+                            const temp = updated[index];
+                            updated[index] = updated[index - 1];
+                            updated[index - 1] = temp;
+                            return updated;
+                          });
+                        };
+                        const moveDown = (index: number) => {
+                          if (index === files.length - 1) return;
+                          setFiles(prev => {
+                            const updated = [...prev];
+                            const temp = updated[index];
+                            updated[index] = updated[index + 1];
+                            updated[index + 1] = temp;
+                            return updated;
+                          });
+                        };
+
+                        return (
+                          <div key={idx} className="py-2.5 flex items-center justify-between text-sm">
+                            <div className="flex items-center gap-2.5 overflow-hidden">
+                              <span className="w-5 h-5 bg-slate-200 text-slate-700 rounded-full text-[10px] font-extrabold flex items-center justify-center shrink-0">
+                                {idx + 1}
+                              </span>
+                              <File className="w-4 h-4 text-red-600 shrink-0" />
+                              <span className="truncate font-medium text-slate-700">{file.name}</span>
+                              <span className="text-xs text-slate-400 shrink-0">({(file.size / (1024 * 1024)).toFixed(2)} MB)</span>
+                            </div>
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              {files.length > 1 && (
+                                <>
+                                  <button
+                                    type="button"
+                                    disabled={idx === 0}
+                                    onClick={() => moveUp(idx)}
+                                    className="px-1.5 py-0.5 text-xs text-slate-500 hover:text-slate-800 disabled:opacity-20"
+                                    title="Move Up"
+                                  >
+                                    ↑
+                                  </button>
+                                  <button
+                                    type="button"
+                                    disabled={idx === files.length - 1}
+                                    onClick={() => moveDown(idx)}
+                                    className="px-1.5 py-0.5 text-xs text-slate-500 hover:text-slate-800 disabled:opacity-20"
+                                    title="Move Down"
+                                  >
+                                    ↓
+                                  </button>
+                                </>
+                              )}
+                              <button onClick={() => removeFile(idx)} className="p-1 text-slate-400 hover:text-red-600 transition">
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </div>
                       </div>
-                      <button onClick={() => removeFile(idx)} className="p-1 text-slate-400 hover:text-red-600 transition">
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
-                  ))}
+                        );
+                      })}
                 </div>
               </div>
 
@@ -448,14 +515,184 @@ export function ToolProcessor({ tool, onProcess }: ToolProcessorProps) {
                 )}
 
                 {tool.id === 'watermark' && (
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">Watermark Type</label>
+                      <div className="grid grid-cols-3 gap-2">
+                        {(['text', 'confidential', 'draft'] as const).map(t => (
+                          <button
+                            key={t}
+                            type="button"
+                            onClick={() => setWatermarkType(t)}
+                            className={`py-2 px-3 text-xs font-bold rounded-xl border transition capitalize ${
+                              watermarkType === t ? 'bg-red-600 text-white border-red-600' : 'bg-white text-slate-700 border-slate-300'
+                            }`}
+                          >
+                            {t}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    {watermarkType === 'text' && (
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-700 mb-1">Watermark Text</label>
+                        <input
+                          type="text"
+                          value={watermarkText}
+                          onChange={(e) => setWatermarkText(e.target.value)}
+                          placeholder="e.g. CONFIDENTIAL or COPYRIGHT"
+                          className="w-full px-4 py-2.5 bg-white border border-slate-300 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-red-500 outline-none"
+                        />
+                      </div>
+                    )}
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-700 mb-1">Opacity ({watermarkOpacity}%)</label>
+                        <input
+                          type="range"
+                          min={10}
+                          max={100}
+                          value={watermarkOpacity}
+                          onChange={(e) => setWatermarkOpacity(parseInt(e.target.value, 10))}
+                          className="w-full accent-red-600"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-700 mb-1">Rotation Angle</label>
+                        <select
+                          value={watermarkRotation}
+                          onChange={(e) => setWatermarkRotation(parseInt(e.target.value, 10))}
+                          className="w-full px-3 py-1.5 bg-white border border-slate-300 rounded-xl text-xs font-semibold outline-none"
+                        >
+                          <option value={45}>45° (Diagonal)</option>
+                          <option value={0}>0° (Horizontal)</option>
+                          <option value={90}>90° (Vertical)</option>
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {tool.id === 'pdf-to-jpg' && (
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1">Watermark Text</label>
-                    <input
-                      type="text"
-                      value={watermarkText}
-                      onChange={(e) => setWatermarkText(e.target.value)}
-                      className="w-full px-4 py-2.5 bg-white border border-slate-300 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-red-500 outline-none"
-                    />
+                    <label className="block text-xs font-semibold text-slate-700 mb-2">Image Resolution & Quality</label>
+                    <div className="grid grid-cols-3 gap-2">
+                      {[
+                        { id: 'high', label: 'High (300 DPI)' },
+                        { id: 'medium', label: 'Medium (150 DPI)' },
+                        { id: 'standard', label: 'Standard (72 DPI)' }
+                      ].map(q => (
+                        <button
+                          key={q.id}
+                          type="button"
+                          onClick={() => setImageQuality(q.id as any)}
+                          className={`py-2 px-3 text-xs font-bold rounded-xl border transition ${
+                            imageQuality === q.id ? 'bg-red-600 text-white border-red-600' : 'bg-white text-slate-700 border-slate-300'
+                          }`}
+                        >
+                          {q.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {tool.id === 'jpg-to-pdf' && (
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">Page Size</label>
+                      <select
+                        value={pageSize}
+                        onChange={(e: any) => setPageSize(e.target.value)}
+                        className="w-full px-4 py-2 bg-white border border-slate-300 rounded-xl text-xs font-semibold outline-none"
+                      >
+                        <option value="A4">A4 (Standard)</option>
+                        <option value="Letter">US Letter</option>
+                        <option value="Fit">Fit to Image</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">Orientation</label>
+                      <select
+                        value={pageOrientation}
+                        onChange={(e: any) => setPageOrientation(e.target.value)}
+                        className="w-full px-4 py-2 bg-white border border-slate-300 rounded-xl text-xs font-semibold outline-none"
+                      >
+                        <option value="portrait">Portrait</option>
+                        <option value="landscape">Landscape</option>
+                      </select>
+                    </div>
+                  </div>
+                )}
+
+                {tool.id === 'ocr-pdf' && (
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">Document Language for OCR</label>
+                    <select
+                      value={ocrLang}
+                      onChange={(e) => setOcrLang(e.target.value)}
+                      className="w-full px-4 py-2 bg-white border border-slate-300 rounded-xl text-xs font-semibold outline-none"
+                    >
+                      <option value="eng">English</option>
+                      <option value="spa">Spanish (Español)</option>
+                      <option value="fra">French (Français)</option>
+                      <option value="deu">German (Deutsch)</option>
+                      <option value="yor">Yoruba</option>
+                      <option value="hau">Hausa</option>
+                      <option value="ibo">Igbo</option>
+                    </select>
+                  </div>
+                )}
+
+                {tool.id === 'repair-pdf' && (
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-2">Repair Engine Strategy</label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setRepairMode('structure')}
+                        className={`py-2 px-3 text-xs font-bold rounded-xl border transition ${
+                          repairMode === 'structure' ? 'bg-red-600 text-white border-red-600' : 'bg-white text-slate-700 border-slate-300'
+                        }`}
+                      >
+                        Rebuild Xref & Structure
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setRepairMode('stream')}
+                        className={`py-2 px-3 text-xs font-bold rounded-xl border transition ${
+                          repairMode === 'stream' ? 'bg-red-600 text-white border-red-600' : 'bg-white text-slate-700 border-slate-300'
+                        }`}
+                      >
+                        Aggressive Stream Recovery
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {(['pdf-to-word', 'pdf-to-ppt', 'pdf-to-excel', 'word-to-pdf', 'excel-to-pdf', 'ppt-to-pdf', 'pdf-to-markdown', 'pdf-to-pdfa', 'edit-pdf', 'pdf-forms'].includes(tool.id)) && (
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-2">Conversion Layout & Typography</label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setConversionLayout('enhanced')}
+                        className={`py-2 px-3 text-xs font-bold rounded-xl border transition ${
+                          conversionLayout === 'enhanced' ? 'bg-red-600 text-white border-red-600' : 'bg-white text-slate-700 border-slate-300'
+                        }`}
+                      >
+                        Preserve Precise Layout
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setConversionLayout('standard')}
+                        className={`py-2 px-3 text-xs font-bold rounded-xl border transition ${
+                          conversionLayout === 'standard' ? 'bg-red-600 text-white border-red-600' : 'bg-white text-slate-700 border-slate-300'
+                        }`}
+                      >
+                        Standard Flow Formatting
+                      </button>
+                    </div>
                   </div>
                 )}
 
