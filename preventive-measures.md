@@ -12,9 +12,11 @@ To ensure sustainable monetization, protect against platform abuse, and maintain
 
 For visitors who use the web app without signing in or linking an account:
 
-1. **Daily Upload Cap (5 Files/Day Maximum)**:
-   - Guest activity is tracked using local storage date counters (`spikedocs_daily_uploads` and `spikedocs_usage_date`).
-   - If a guest attempts to select, drop, or process more than 5 files within a 24-hour UTC window, the UI immediately blocks further processing and displays an upgrade banner.
+1. **Dual-Layer Daily Upload Cap (Client LocalStorage + Server IP Address Rate Limiting)**:
+   - **Layer 1 (Browser)**: Guest activity is tracked using local storage date counters (`spikedocs_daily_uploads` and `spikedocs_usage_date`).
+   - **Layer 2 (Network IP Tracking / Anti-Incognito)**: To eliminate the loophole where users open an **Incognito / Private Browsing window** to reset local storage, the platform checks `/api/usage/check`.
+   - The server inspects the client's public IP address (`x-forwarded-for` / `x-real-ip`). Once an IP address reaches 5 cumulative file uploads within a UTC calendar day, all subsequent requests from that IP—regardless of browser mode, cookies, or incognito sessions—are denied until the user signs up, signs in, or upgrades to SpikeDocs Pro.
+   - The database schema incorporates `public.ip_daily_usage (ip_address, usage_date, upload_count)` to persist and synchronize daily limits.
 2. **Pro Tool Hard Locking**:
    - High-value tools (such as *AI Summarizer*, *Translate PDF*, *PDF to Excel*, *PDF to PowerPoint*, *HTML to PDF*, *PDF to Markdown*, *PDF to PDF/A*, and *OCR Searchable PDF*) are designated with `isPro: true`.
    - Guest users encountering a Pro tool see a locked Pro Gate modal requiring them to create an account or subscribe to SpikeDocs Pro. The "Process" action is disabled.
