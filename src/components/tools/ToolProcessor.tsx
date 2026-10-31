@@ -8,6 +8,9 @@ import { PdfSignatureViewer } from './PdfSignatureViewer';
 import { PageOrganizerGrid } from './PageOrganizerGrid';
 import { RedactionOverlayViewer } from './RedactionOverlayViewer';
 import { ComparePdfViewer } from './ComparePdfViewer';
+import { PdfCropViewer } from './PdfCropViewer';
+import { PdfWatermarkViewer } from './PdfWatermarkViewer';
+import { PdfEditorViewer } from './PdfEditorViewer';
 
 interface ToolProcessorProps {
   tool: ToolDefinition;
@@ -312,12 +315,24 @@ export function ToolProcessor({ tool, onProcess }: ToolProcessorProps) {
             <RedactionOverlayViewer file={files[0]} onApplyRedaction={handleInteractiveSave} />
           )}
 
+          {files.length > 0 && tool.id === 'crop-pdf' && (
+            <PdfCropViewer file={files[0]} onApplyCrop={handleInteractiveSave} />
+          )}
+
+          {files.length > 0 && tool.id === 'watermark' && (
+            <PdfWatermarkViewer file={files[0]} onApplyWatermark={handleInteractiveSave} />
+          )}
+
+          {files.length > 0 && (tool.id === 'edit-pdf' || tool.id === 'pdf-forms') && (
+            <PdfEditorViewer file={files[0]} mode={tool.id === 'pdf-forms' ? 'forms' : 'edit'} onSave={handleInteractiveSave} />
+          )}
+
           {files.length >= 2 && tool.id === 'compare-pdf' && (
             <ComparePdfViewer files={files} />
           )}
 
           {/* Standard Upload List & Settings for non-interactive tools */}
-          {files.length > 0 && !['sign-pdf', 'organize-pdf', 'extract-pdf', 'rotate-pdf', 'redact-pdf', 'compare-pdf'].includes(tool.id) && (
+          {files.length > 0 && !['sign-pdf', 'organize-pdf', 'extract-pdf', 'rotate-pdf', 'redact-pdf', 'crop-pdf', 'watermark', 'edit-pdf', 'pdf-forms', 'compare-pdf'].includes(tool.id) && (
             <>
               <div className="space-y-3 bg-slate-50 p-4 rounded-2xl border border-slate-200">
                 <div className="flex items-center justify-between">

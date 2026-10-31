@@ -629,25 +629,62 @@ export async function cropPDF(file: File, cropBox: { x: number; y: number; width
 }
 
 export async function wordToPdf(file: File, textContent: string): Promise<Uint8Array> {
+  // If the file is a docx archive, extract readable text from word/document.xml
+  let extractedText = textContent;
+  try {
+    const arrayBuf = await file.arrayBuffer();
+    const zip = await JSZip.loadAsync(arrayBuf);
+    const docXmlFile = zip.file('word/document.xml');
+    if (docXmlFile) {
+      const xmlStr = await docXmlFile.async('text');
+      extractedText = xmlStr
+        .replace(/<w:p[^>]*>/g, '\n')
+        .replace(/<[^>]+>/g, '')
+        .replace(/&amp;/g, '&')
+        .replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>')
+        .replace(/&quot;/g, '"')
+        .replace(/&apos;/g, "'");
+    }
+  } catch {
+    // If not a zip docx, fall back to passed textContent
+  }
+
   const pdfDoc = await PDFDocument.create();
   const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
-  let page = pdfDoc.addPage();
+  let page = pdfDoc.addPage([595, 842]);
   const { height } = page.getSize();
 
-  const lines = textContent.split('\n');
-  let currentY = height - 40;
+  const lines = extractedText.split('\n');
+  let currentY = height - 50;
 
-  for (const line of lines) {
-    if (currentY < 40) {
-      page = pdfDoc.addPage();
-      currentY = height - 40;
+  for (const rawLine of lines) {
+    const trimmed = rawLine.trim();
+    if (!trimmed) {
+      currentY -= 12;
+      continue;
     }
-    page.drawText(line.substring(0, 90), {
-      x: 40,
+
+    // Sanitize non-WinAnsi characters to prevent "WinAnsi cannot encode" crashes
+    const sanitizedLine = trimmed
+      .replace(/[\u0000-\u001F\u007F-\u009F]/g, ' ') // Strip control characters like 0x0003
+      .replace(/[\u201C\u201D]/g, '"')               // Smart double quotes
+      .replace(/[\u2018\u2019]/g, "'")               // Smart single quotes
+      .replace(/[\u2014\u2013]/g, '-')               // Em/en dashes
+      .replace(/[\u2026]/g, '...')                   // Ellipsis
+      .replace(/[^\x20-\x7E\xA0-\xFF]/g, ' ');       // Other non-WinAnsi glyphs
+
+    if (currentY < 50) {
+      page = pdfDoc.addPage([595, 842]);
+      currentY = height - 50;
+    }
+
+    page.drawText(sanitizedLine.substring(0, 95), {
+      x: 50,
       y: currentY,
       size: 11,
       font,
-      color: rgb(0.1, 0.1, 0.1),
+      color: rgb(0.15, 0.15, 0.15),
     });
     currentY -= 16;
   }

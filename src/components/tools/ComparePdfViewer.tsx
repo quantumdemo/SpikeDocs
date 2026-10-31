@@ -11,21 +11,28 @@ interface ComparePdfViewerProps {
 export function ComparePdfViewer({ files }: ComparePdfViewerProps) {
   const [fileAText, setFileAText] = useState<string>('');
   const [fileBText, setFileBText] = useState<string>('');
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [comparisonMode, setComparisonMode] = useState<'text' | 'visual' | 'layout'>('text');
+  const [ignoreWhitespace, setIgnoreWhitespace] = useState<boolean>(true);
 
   useEffect(() => {
     async function loadTexts() {
       if (files.length < 2) return;
       setLoading(true);
 
-      const [textA, textB] = await Promise.all([
-        extractTextFromPDF(files[0]),
-        extractTextFromPDF(files[1]),
-      ]);
+      try {
+        const [textA, textB] = await Promise.all([
+          extractTextFromPDF(files[0]),
+          extractTextFromPDF(files[1]),
+        ]);
 
-      setFileAText(textA.join('\n\n'));
-      setFileBText(textB.join('\n\n'));
-      setLoading(false);
+        setFileAText(textA.filter(t => t.trim()).join('\n\n'));
+        setFileBText(textB.filter(t => t.trim()).join('\n\n'));
+      } catch (e) {
+        console.error('Error extracting text for comparison:', e);
+      } finally {
+        setLoading(false);
+      }
     }
 
     loadTexts();
@@ -42,9 +49,43 @@ export function ComparePdfViewer({ files }: ComparePdfViewerProps) {
 
   return (
     <div className="space-y-6 w-full">
-      <div className="flex items-center gap-2 bg-slate-100 p-4 rounded-2xl border border-slate-200">
-        <GitCompare className="w-5 h-5 text-red-600" />
-        <h3 className="text-xs font-bold text-slate-800">Side-By-Side Synchronized PDF Document Comparison</h3>
+      <div className="bg-slate-100 p-4 rounded-3xl border border-slate-200 space-y-3">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div className="flex items-center gap-2">
+            <GitCompare className="w-5 h-5 text-red-600" />
+            <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wide">
+              Document Comparison Controls
+            </h3>
+          </div>
+
+          <div className="flex items-center gap-2 text-xs font-bold">
+            <span className="text-slate-600">Mode:</span>
+            {(['text', 'visual', 'layout'] as const).map(mode => (
+              <button
+                key={mode}
+                type="button"
+                onClick={() => setComparisonMode(mode)}
+                className={`px-3 py-1.5 rounded-xl border capitalize transition ${
+                  comparisonMode === mode ? 'bg-red-600 text-white border-red-600' : 'bg-white text-slate-700 border-slate-300'
+                }`}
+              >
+                {mode}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="flex items-center gap-4 pt-1 text-xs">
+          <label className="flex items-center gap-2 cursor-pointer font-semibold text-slate-700">
+            <input
+              type="checkbox"
+              checked={ignoreWhitespace}
+              onChange={(e) => setIgnoreWhitespace(e.target.checked)}
+              className="accent-red-600 rounded"
+            />
+            <span>Ignore extra whitespace and linebreaks</span>
+          </label>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -54,8 +95,12 @@ export function ComparePdfViewer({ files }: ComparePdfViewerProps) {
             <FileText className="w-4 h-4 text-red-600 shrink-0" />
             <span className="font-extrabold text-xs text-slate-900 truncate">Document A: {files[0]?.name}</span>
           </div>
-          <div className="flex-1 overflow-y-auto pt-4 text-xs font-mono text-slate-700 whitespace-pre-wrap leading-relaxed">
-            {fileAText || 'No readable text content extracted.'}
+          <div className="flex-1 overflow-y-auto pt-4 text-xs font-mono text-slate-700 whitespace-pre-wrap leading-relaxed bg-slate-50/50 p-4 rounded-2xl border border-slate-100">
+            {fileAText || (
+              <div className="p-4 bg-amber-50 border border-amber-200 text-amber-800 rounded-xl text-xs">
+                ⚠️ Scanned or image-based document detected with no vector text. Please run OCR PDF first to convert to searchable text.
+              </div>
+            )}
           </div>
         </div>
 
@@ -65,8 +110,12 @@ export function ComparePdfViewer({ files }: ComparePdfViewerProps) {
             <FileText className="w-4 h-4 text-emerald-600 shrink-0" />
             <span className="font-extrabold text-xs text-slate-900 truncate">Document B: {files[1]?.name}</span>
           </div>
-          <div className="flex-1 overflow-y-auto pt-4 text-xs font-mono text-slate-700 whitespace-pre-wrap leading-relaxed">
-            {fileBText || 'No readable text content extracted.'}
+          <div className="flex-1 overflow-y-auto pt-4 text-xs font-mono text-slate-700 whitespace-pre-wrap leading-relaxed bg-slate-50/50 p-4 rounded-2xl border border-slate-100">
+            {fileBText || (
+              <div className="p-4 bg-amber-50 border border-amber-200 text-amber-800 rounded-xl text-xs">
+                ⚠️ Scanned or image-based document detected with no vector text. Please run OCR PDF first to convert to searchable text.
+              </div>
+            )}
           </div>
         </div>
       </div>
