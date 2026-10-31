@@ -13,6 +13,7 @@ export function SignatureModal({ isOpen, onClose, onSaveSignature }: SignatureMo
   const [tab, setTab] = useState<'draw' | 'type' | 'upload'>('draw');
   const [typedName, setTypedName] = useState('');
   const [typedFont, setTypedFont] = useState<'cursive' | 'serif' | 'sans-serif'>('cursive');
+  const [inkColor, setInkColor] = useState<string>('#000000'); // Black, Blue, Green, Red
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isDrawing, setIsDrawing] = useState(false);
@@ -22,12 +23,12 @@ export function SignatureModal({ isOpen, onClose, onSaveSignature }: SignatureMo
       const canvas = canvasRef.current;
       const ctx = canvas.getContext('2d');
       if (ctx) {
-        ctx.strokeStyle = '#000000';
+        ctx.strokeStyle = inkColor;
         ctx.lineWidth = 2.5;
         ctx.lineCap = 'round';
       }
     }
-  }, [tab, isOpen]);
+  }, [tab, isOpen, inkColor]);
 
   if (!isOpen) return null;
 
@@ -39,6 +40,11 @@ export function SignatureModal({ isOpen, onClose, onSaveSignature }: SignatureMo
     const rect = canvas.getBoundingClientRect();
     const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
     const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
+    if (ctx) {
+      ctx.strokeStyle = inkColor;
+      ctx.lineWidth = 2.5;
+      ctx.lineCap = 'round';
+    }
     ctx?.beginPath();
     ctx?.moveTo(clientX - rect.left, clientY - rect.top);
   };
@@ -77,7 +83,7 @@ export function SignatureModal({ isOpen, onClose, onSaveSignature }: SignatureMo
       const ctx = tempCanvas.getContext('2d');
       if (ctx) {
         ctx.font = typedFont === 'cursive' ? '40px Dancing Script, cursive, sans-serif' : '36px Georgia, serif';
-        ctx.fillStyle = '#000000';
+        ctx.fillStyle = inkColor;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillText(typedName, 200, 75);
@@ -140,6 +146,32 @@ export function SignatureModal({ isOpen, onClose, onSaveSignature }: SignatureMo
         </div>
 
         <div className="p-6">
+          {/* Ink Color Selector (Black, Blue, Green, Red) */}
+          {(tab === 'draw' || tab === 'type') && (
+            <div className="flex items-center justify-between pb-4 mb-4 border-b border-slate-100">
+              <span className="text-xs font-bold text-slate-600">Ink Color:</span>
+              <div className="flex items-center gap-2">
+                {[
+                  { label: 'Black', color: '#000000' },
+                  { label: 'Blue', color: '#1d4ed8' },
+                  { label: 'Green', color: '#15803d' },
+                  { label: 'Red', color: '#b91c1c' },
+                ].map((item) => (
+                  <button
+                    key={item.color}
+                    type="button"
+                    onClick={() => setInkColor(item.color)}
+                    style={{ backgroundColor: item.color }}
+                    className={`w-6 h-6 rounded-full transition-transform ${
+                      inkColor === item.color ? 'ring-2 ring-offset-2 ring-red-500 scale-110 shadow-sm' : 'opacity-80 hover:opacity-100'
+                    }`}
+                    title={item.label}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+
           {tab === 'draw' && (
             <div className="space-y-3">
               <div className="relative border-2 border-dashed border-slate-300 rounded-2xl bg-slate-50/80">
@@ -178,7 +210,10 @@ export function SignatureModal({ isOpen, onClose, onSaveSignature }: SignatureMo
                 className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-base focus:ring-2 focus:ring-red-500 outline-none"
               />
               <div className="p-6 border border-slate-200 rounded-2xl bg-slate-50 text-center min-h-[100px] flex items-center justify-center">
-                <span className={`text-3xl text-slate-900 ${typedFont === 'cursive' ? 'font-serif italic' : 'font-sans'}`}>
+                <span
+                  style={{ color: inkColor }}
+                  className={`text-3xl ${typedFont === 'cursive' ? 'font-serif italic' : 'font-sans'}`}
+                >
                   {typedName || 'Your Signature'}
                 </span>
               </div>
