@@ -384,6 +384,10 @@ export function ToolProcessor({ tool, onProcess }: ToolProcessorProps) {
                       onChange={(e) => setTargetLang(e.target.value)}
                       className="w-full px-4 py-2.5 bg-white border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-red-500 outline-none"
                     >
+                      <option value="English">English</option>
+                      <option value="Yoruba">Yoruba</option>
+                      <option value="Hausa">Hausa</option>
+                      <option value="Igbo">Igbo</option>
                       <option value="Spanish">Spanish</option>
                       <option value="French">French</option>
                       <option value="German">German</option>
