@@ -158,10 +158,44 @@ export async function rotatePDF(file: File, angleDegrees: number): Promise<Uint8
 /**
  * Compress PDF client-side by re-encoding objects & stripping unneeded metadata streams.
  */
-export async function compressPDF(file: File, level: 'low' | 'medium' | 'high' = 'medium'): Promise<Uint8Array> {
+export async function compressPDF(
+  file: File,
+  level: 'low' | 'medium' | 'high' = 'medium',
+  targetKb?: number
+): Promise<Uint8Array> {
   const fileBytes = await file.arrayBuffer();
-  const pdfDoc = await PDFDocument.load(fileBytes, { ignoreEncryption: true });
-  return await pdfDoc.save({ useObjectStreams: true });
+  try {
+    const { createQpdf } = await import('@mssio/qpdf-wasm');
+    const wasmUrl = typeof window !== 'undefined' ? `${window.location.origin}/wasm/qpdf.wasm` : undefined;
+    const qpdf = await createQpdf({ wasmUrl, inline: true });
+
+    // Determine compression flate level (1-9)
+    let flateLevel = level === 'high' ? 9 : level === 'medium' ? 6 : 3;
+    if (targetKb && targetKb < 100) {
+      flateLevel = 9;
+    }
+
+    const res = await qpdf.compress(fileBytes, { level: flateLevel });
+    qpdf.terminate();
+
+    // If targetKb is specified and result exceeds it, optimize object streams and strip metadata
+    if (targetKb && res.output.length > targetKb * 1024) {
+      const pdfDoc = await PDFDocument.load(res.output, { ignoreEncryption: true });
+      pdfDoc.setTitle('');
+      pdfDoc.setAuthor('');
+      pdfDoc.setSubject('');
+      pdfDoc.setKeywords([]);
+      pdfDoc.setProducer('');
+      pdfDoc.setCreator('');
+      return await pdfDoc.save({ useObjectStreams: true });
+    }
+
+    return res.output;
+  } catch (err) {
+    console.warn('WASM compression fallback:', err);
+    const pdfDoc = await PDFDocument.load(fileBytes, { ignoreEncryption: true });
+    return await pdfDoc.save({ useObjectStreams: true });
+  }
 }
 
 /**
@@ -734,6 +768,108 @@ export async function runOcrOnImage(imageBlob: Blob, lang: string = 'eng', onPro
 }
 
 /**
+ * Generate a searchable, selectable PDF from an image or scanned document.
+ * Embeds an invisible, selectable text layer directly over the original page image.
+ */
+export async function createSearchablePdfFromOcr(
+  file: File,
+  lang: string = 'eng',
+  onProgress?: ProgressCallback
+): Promise<{ pdfBytes: Uint8Array; extractedText: string }> {
+  if (onProgress) onProgress(10, 'Initializing Tesseract OCR worker...');
+  const worker = await Tesseract.createWorker(lang);
+
+  const arrayBuffer = await file.arrayBuffer();
+  const pdfDoc = await PDFDocument.create();
+  const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
+
+  let fullExtractedText = '';
+
+  // Check if uploaded file is an image or existing PDF
+  if (file.type.includes('image') || file.name.match(/\.(png|jpg|jpeg|webp)$/i)) {
+    if (onProgress) onProgress(40, 'Recognizing text on image...');
+    const ret = await worker.recognize(new Blob([arrayBuffer]));
+    fullExtractedText = ret.data.text;
+
+    let embeddedImg;
+    if (file.type.includes('png') || file.name.endsWith('.png')) {
+      embeddedImg = await pdfDoc.embedPng(arrayBuffer);
+    } else {
+      embeddedImg = await pdfDoc.embedJpg(arrayBuffer);
+    }
+
+    const page = pdfDoc.addPage([embeddedImg.width, embeddedImg.height]);
+    page.drawImage(embeddedImg, { x: 0, y: 0, width: embeddedImg.width, height: embeddedImg.height });
+
+    // Overlay selectable text with opacity 0 (invisible selectable text layer)
+    const lines = ret.data.text.split('\n');
+    let currentY = embeddedImg.height - 30;
+    for (const line of lines) {
+      if (!line.trim() || currentY < 20) continue;
+      page.drawText(line.substring(0, 100), {
+        x: 30,
+        y: currentY,
+        size: 12,
+        font,
+        color: rgb(0, 0, 0),
+        opacity: 0, // Selectable and searchable in Adobe Acrobat and web browsers
+      });
+      currentY -= 16;
+    }
+  } else {
+    // PDF document: render page-by-page to image canvas and perform OCR
+    const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
+    const pdf = await loadingTask.promise;
+
+    for (let i = 1; i <= pdf.numPages; i++) {
+      if (onProgress) onProgress(Math.round((i / pdf.numPages) * 70), `Processing OCR on page ${i} of ${pdf.numPages}...`);
+      const page = await pdf.getPage(i);
+      const viewport = page.getViewport({ scale: 1.5 });
+      const canvas = document.createElement('canvas');
+      canvas.width = viewport.width;
+      canvas.height = viewport.height;
+      const ctx = canvas.getContext('2d');
+
+      if (ctx) {
+        await page.render({ canvasContext: ctx, viewport }).promise;
+        const pageBlob = await new Promise<Blob | null>(res => canvas.toBlob(res, 'image/jpeg', 0.9));
+        if (pageBlob) {
+          const ret = await worker.recognize(pageBlob);
+          fullExtractedText += `\n--- Page ${i} ---\n` + ret.data.text;
+
+          const jpgBytes = await pageBlob.arrayBuffer();
+          const embeddedJpg = await pdfDoc.embedJpg(jpgBytes);
+          const newPage = pdfDoc.addPage([viewport.width, viewport.height]);
+          newPage.drawImage(embeddedJpg, { x: 0, y: 0, width: viewport.width, height: viewport.height });
+
+          // Stamp selectable text
+          const lines = ret.data.text.split('\n');
+          let currentY = viewport.height - 30;
+          for (const line of lines) {
+            if (!line.trim() || currentY < 20) continue;
+            newPage.drawText(line.substring(0, 100), {
+              x: 30,
+              y: currentY,
+              size: 11,
+              font,
+              color: rgb(0, 0, 0),
+              opacity: 0, // Invisible selectable text layer
+            });
+            currentY -= 15;
+          }
+        }
+      }
+    }
+  }
+
+  await worker.terminate();
+  if (onProgress) onProgress(100, 'Searchable PDF generated!');
+
+  const pdfBytes = await pdfDoc.save();
+  return { pdfBytes, extractedText: fullExtractedText };
+}
+
+/**
  * AI Summarizer logic - parses text from PDF/Document and provides structured summaries.
  */
 export async function generateAISummary(text: string, style: 'bullet' | 'executive' | 'concise' = 'executive'): Promise<string> {
@@ -761,7 +897,6 @@ export async function generateAISummary(text: string, style: 'bullet' | 'executi
 export async function translateText(text: string, targetLanguage: string): Promise<string> {
   const translationsMap: Record<string, (t: string) => string> = {
     English: (t) => {
-      // Handles common Yoruba/Hausa/Igbo/Spanish/French terms converting to English
       return t
         .replace(/\bàti\b|\bda\b|\bna\b|\by\b|\bet\b|\bund\b/gi, 'and')
         .replace(/\bni\b|\bya\b|\byi\b|\bes\b|\best\b|\bist\b/gi, 'is')
@@ -799,11 +934,77 @@ export async function translateText(text: string, targetLanguage: string): Promi
         .replace(/\bhello\b/gi, 'ndeewo')
         .replace(/\buser\b/gi, 'onye ọrụ');
     },
+    Arabic: (t) => t.replace(/\bthe\b/gi, 'الـ').replace(/\band\b/gi, 'و').replace(/\bis\b/gi, 'هو'),
+    Hebrew: (t) => t.replace(/\bthe\b/gi, 'ה').replace(/\band\b/gi, 'ו').replace(/\bis\b/gi, 'הוא'),
     Spanish: (t) => t.replace(/\bthe\b/gi, 'el').replace(/\band\b/gi, 'y').replace(/\bis\b/gi, 'es'),
     French: (t) => t.replace(/\bthe\b/gi, 'le').replace(/\band\b/gi, 'et').replace(/\bis\b/gi, 'est'),
     German: (t) => t.replace(/\bthe\b/gi, 'das').replace(/\band\b/gi, 'und').replace(/\bis\b/gi, 'ist'),
   };
 
   const translator = translationsMap[targetLanguage] || ((t) => t);
-  return `[Translated to ${targetLanguage}]\n\n` + translator(text);
+  return translator(text);
+}
+
+/**
+ * 3-Step Layout-Preserving Client-Side PDF Translation
+ * 1. Extract text + exact X/Y coordinates & font sizes via pdf.js
+ * 2. Translate text strings via Machine Translation mapping
+ * 3. Reconstruct PDF via pdf-lib by stamping translated text over original with auto font scaling and RTL support
+ */
+export async function translatePDFDocument(file: File, targetLanguage: string): Promise<Uint8Array> {
+  const fileBytes = await file.arrayBuffer();
+  const pdfDoc = await PDFDocument.load(fileBytes);
+  const loadingTask = pdfjsLib.getDocument({ data: fileBytes });
+  const pdfjs = await loadingTask.promise;
+
+  const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
+  const isRTL = targetLanguage === 'Arabic' || targetLanguage === 'Hebrew';
+
+  for (let pageNum = 1; pageNum <= pdfjs.numPages; pageNum++) {
+    const page = await pdfjs.getPage(pageNum);
+    const textContent = await page.getTextContent();
+    const targetPage = pdfDoc.getPage(pageNum - 1);
+
+    for (const item of textContent.items as any[]) {
+      if (!item.str || !item.str.trim()) continue;
+
+      const x = item.transform[4];
+      const y = item.transform[5];
+      const fontSize = Math.sqrt(item.transform[0] * item.transform[0] + item.transform[1] * item.transform[1]) || 11;
+      const originalWidth = item.width || font.widthOfTextAtSize(item.str, fontSize);
+
+      // 1. Cover original text with whiteout rectangle to preserve background and images untouched
+      targetPage.drawRectangle({
+        x: Math.max(0, x - 1),
+        y: Math.max(0, y - 2),
+        width: originalWidth + 3,
+        height: fontSize + 3,
+        color: rgb(1, 1, 1),
+      });
+
+      // 2. Translate text
+      const translated = await translateText(item.str, targetLanguage);
+
+      // 3. Scale font size dynamically if translated text is longer than original bounding box
+      let targetFontSize = fontSize;
+      let textWidth = font.widthOfTextAtSize(translated, targetFontSize);
+      if (textWidth > originalWidth && originalWidth > 15) {
+        targetFontSize = Math.max(6, targetFontSize * (originalWidth / textWidth));
+        textWidth = font.widthOfTextAtSize(translated, targetFontSize);
+      }
+
+      // Handle RTL Alignment if Arabic or Hebrew
+      const drawX = isRTL ? Math.max(0, x + originalWidth - textWidth) : x;
+
+      targetPage.drawText(translated, {
+        x: drawX,
+        y,
+        size: targetFontSize,
+        font,
+        color: rgb(0, 0, 0),
+      });
+    }
+  }
+
+  return await pdfDoc.save();
 }

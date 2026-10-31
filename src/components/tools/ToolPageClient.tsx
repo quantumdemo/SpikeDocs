@@ -30,8 +30,10 @@ import {
   pdfToMarkdown,
   pdfToPdfA,
   runOcrOnImage,
+  createSearchablePdfFromOcr,
   generateAISummary,
   translateText,
+  translatePDFDocument,
   extractTextFromPDF
 } from '@/lib/engine/pdfEngine';
 import Link from 'next/link';
@@ -79,7 +81,7 @@ export function ToolPageClient({ slug }: { slug: string }) {
         break;
 
       case 'compress-pdf':
-        outputBytes = await compressPDF(files[0], 'medium');
+        outputBytes = await compressPDF(files[0], options.compressionLevel || 'medium', options.targetKb);
         fileName += '.pdf';
         break;
 
@@ -193,11 +195,13 @@ export function ToolPageClient({ slug }: { slug: string }) {
         fileName += '.pdf';
         break;
 
-      case 'ocr-pdf':
-        textOutput = await runOcrOnImage(files[0]);
-        outputBlob = new Blob([textOutput], { type: 'text/plain' });
-        fileName += '_ocr.txt';
+      case 'ocr-pdf': {
+        const ocrRes = await createSearchablePdfFromOcr(files[0], 'eng');
+        outputBytes = ocrRes.pdfBytes;
+        textOutput = ocrRes.extractedText;
+        fileName += '_searchable.pdf';
         break;
+      }
 
       case 'ai-summarizer': {
         const pageTexts = await extractTextFromPDF(files[0]);
@@ -209,11 +213,8 @@ export function ToolPageClient({ slug }: { slug: string }) {
       }
 
       case 'translate-pdf': {
-        const pageTexts = await extractTextFromPDF(files[0]);
-        const fullText = pageTexts.join(' ');
-        textOutput = await translateText(fullText || "Original Document Content", options.targetLang || 'Spanish');
-        outputBlob = new Blob([textOutput], { type: 'text/plain' });
-        fileName += `_translated_${options.targetLang}.txt`;
+        outputBytes = await translatePDFDocument(files[0], options.targetLang || 'Spanish');
+        fileName += `_translated_${options.targetLang || 'Spanish'}.pdf`;
         break;
       }
 

@@ -2,7 +2,8 @@
 
 import React, { useState, useRef } from 'react';
 import { ToolDefinition } from '@/config/tools';
-import { Upload, File, CheckCircle2, AlertCircle, ArrowRight, Download, RefreshCw, Lock, Sparkles, Shield, Trash2 } from 'lucide-react';
+import { Upload, File, CheckCircle2, AlertCircle, ArrowRight, Download, RefreshCw, Lock, Sparkles, Shield, Trash2, Crown } from 'lucide-react';
+import Link from 'next/link';
 import { PdfSignatureViewer } from './PdfSignatureViewer';
 import { PageOrganizerGrid } from './PageOrganizerGrid';
 import { RedactionOverlayViewer } from './RedactionOverlayViewer';
@@ -27,17 +28,47 @@ export function ToolProcessor({ tool, onProcess }: ToolProcessorProps) {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [compressionLevel, setCompressionLevel] = useState<'low' | 'medium' | 'high'>('medium');
+  const [targetKb, setTargetKb] = useState<string>('');
   const [pageNumberPosition, setPageNumberPosition] = useState<'bottom-center' | 'bottom-right' | 'top-center' | 'top-right'>('bottom-center');
   const [pageNumberStart, setPageNumberStart] = useState<number>(1);
   const [urlInput, setUrlInput] = useState<string>('https://');
   const [targetLang, setTargetLang] = useState('Spanish');
   const [summaryStyle, setSummaryStyle] = useState<'executive' | 'bullet' | 'concise'>('executive');
 
+  // Client-side Usage & Tier Guard
+  const [dailyUploads, setDailyUploads] = useState<number>(() => {
+    if (typeof window !== 'undefined') {
+      const today = new Date().toISOString().split('T')[0];
+      const savedDate = localStorage.getItem('spikedocs_usage_date');
+      if (savedDate !== today) {
+        localStorage.setItem('spikedocs_usage_date', today);
+        localStorage.setItem('spikedocs_daily_uploads', '0');
+        return 0;
+      }
+      return parseInt(localStorage.getItem('spikedocs_daily_uploads') || '0', 10);
+    }
+    return 0;
+  });
+
+  const [isProUser, setIsProUser] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('spikedocs_is_pro') === 'true';
+    }
+    return false;
+  });
+
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
       const selected = Array.from(e.target.files);
+
+      // Check daily upload limit for free users (maximum 5 uploads per day)
+      if (!isProUser && dailyUploads + selected.length > 5) {
+        setError('Free tier limit reached (maximum 5 files per day). Please upgrade to SpikeDocs Pro for unlimited uploads.');
+        return;
+      }
+
       setFiles(selected);
       setError(null);
       setResult(null);
@@ -48,6 +79,12 @@ export function ToolProcessor({ tool, onProcess }: ToolProcessorProps) {
     e.preventDefault();
     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
       const selected = Array.from(e.dataTransfer.files);
+
+      if (!isProUser && dailyUploads + selected.length > 5) {
+        setError('Free tier limit reached (maximum 5 files per day). Please upgrade to SpikeDocs Pro for unlimited uploads.');
+        return;
+      }
+
       setFiles(selected);
       setError(null);
       setResult(null);
@@ -61,6 +98,18 @@ export function ToolProcessor({ tool, onProcess }: ToolProcessorProps) {
   const handleRunProcess = async () => {
     if (files.length === 0) {
       setError('Please select at least one file.');
+      return;
+    }
+
+    // Gate Pro tools from non-pro users
+    if (tool.isPro && !isProUser) {
+      setError('This tool is exclusive to SpikeDocs Pro members. Please upgrade to Pro or sign in to continue.');
+      return;
+    }
+
+    // Enforce daily upload limit
+    if (!isProUser && dailyUploads >= 5) {
+      setError('You have used all 5 free daily uploads. Upgrade to SpikeDocs Pro for unlimited access.');
       return;
     }
 
@@ -80,6 +129,7 @@ export function ToolProcessor({ tool, onProcess }: ToolProcessorProps) {
         watermarkText,
         password,
         compressionLevel,
+        targetKb: targetKb ? parseInt(targetKb, 10) : undefined,
         pageNumberPosition,
         pageNumberStart,
         targetLang,
@@ -89,6 +139,13 @@ export function ToolProcessor({ tool, onProcess }: ToolProcessorProps) {
 
       const res = await onProcess(files, options);
       setResult(res);
+
+      // Increment daily upload counter for free users
+      if (!isProUser && typeof window !== 'undefined') {
+        const nextCount = dailyUploads + files.length;
+        setDailyUploads(nextCount);
+        localStorage.setItem('spikedocs_daily_uploads', nextCount.toString());
+      }
     } catch (err: any) {
       console.error(err);
       setError(err.message || 'An error occurred during file processing.');
@@ -108,11 +165,54 @@ export function ToolProcessor({ tool, onProcess }: ToolProcessorProps) {
 
   return (
     <div className="w-full max-w-4xl mx-auto bg-white rounded-3xl border border-slate-200/80 shadow-xl overflow-hidden p-6 sm:p-10 my-8">
-      {/* Zero Data Banner */}
-      <div className="flex items-center justify-center gap-2 px-4 py-2 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-2xl text-xs font-semibold mb-8 w-fit mx-auto">
-        <Shield className="w-4 h-4 text-emerald-600" />
-        <span>100% Client-Side Processing • Your files are never uploaded to any server</span>
+      {/* Zero Data Banner & Tier Status */}
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-8">
+        <div className="flex items-center gap-2 px-4 py-2 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-2xl text-xs font-semibold">
+          <Shield className="w-4 h-4 text-emerald-600 shrink-0" />
+          <span>100% Client-Side Processing • Your files are never uploaded to any server</span>
+        </div>
+
+        <div className="flex items-center gap-2 text-xs font-bold">
+          {isProUser ? (
+            <span className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-50 border border-amber-200 text-amber-700 rounded-xl">
+              <Crown className="w-3.5 h-3.5 text-amber-500" />
+              <span>Pro Active (Unlimited)</span>
+            </span>
+          ) : (
+            <span className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 border border-slate-200 text-slate-600 rounded-xl">
+              <span>Free Plan ({Math.max(0, 5 - dailyUploads)}/5 uploads left today)</span>
+              <Link href="/pricing" className="text-red-600 hover:underline ml-1">Upgrade</Link>
+            </span>
+          )}
+        </div>
       </div>
+
+      {/* Pro Locked Gate for non-subscribed users */}
+      {tool.isPro && !isProUser && (
+        <div className="mb-8 p-6 bg-gradient-to-br from-amber-50 to-orange-50 border border-amber-200 rounded-3xl text-center space-y-3">
+          <div className="w-12 h-12 bg-amber-100 text-amber-600 rounded-2xl flex items-center justify-center mx-auto shadow-inner">
+            <Crown className="w-6 h-6" />
+          </div>
+          <h4 className="text-base font-extrabold text-slate-900">SpikeDocs Pro Feature</h4>
+          <p className="text-xs text-slate-600 max-w-md mx-auto">
+            {tool.title} is an advanced tool reserved for SpikeDocs Pro users and administrators. Subscribe or sign in with your Pro account to unlock.
+          </p>
+          <div className="pt-2 flex items-center justify-center gap-3">
+            <Link
+              href="/pricing"
+              className="px-6 py-2.5 bg-red-600 hover:bg-red-700 text-white font-bold text-xs rounded-xl shadow-md transition"
+            >
+              Get SpikeDocs Pro
+            </Link>
+            <Link
+              href="/auth/signin"
+              className="px-5 py-2.5 bg-white border border-slate-200 text-slate-700 font-bold text-xs rounded-xl hover:bg-slate-50 transition"
+            >
+              Sign In
+            </Link>
+          </div>
+        </div>
+      )}
 
       {result ? (
         <div className="text-center py-8 space-y-6 animate-fadeIn">
@@ -266,21 +366,42 @@ export function ToolProcessor({ tool, onProcess }: ToolProcessorProps) {
                 )}
 
                 {tool.id === 'compress-pdf' && (
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-2">Compression Level</label>
-                    <div className="grid grid-cols-3 gap-2">
-                      {(['low', 'medium', 'high'] as const).map(level => (
-                        <button
-                          key={level}
-                          type="button"
-                          onClick={() => setCompressionLevel(level)}
-                          className={`py-2 px-3 text-xs font-bold rounded-xl border transition capitalize ${
-                            compressionLevel === level ? 'bg-red-600 text-white border-red-600' : 'bg-white text-slate-700 border-slate-300'
-                          }`}
-                        >
-                          {level}
-                        </button>
-                      ))}
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-2">Compression Preset</label>
+                      <div className="grid grid-cols-3 gap-2">
+                        {(['low', 'medium', 'high'] as const).map(level => (
+                          <button
+                            key={level}
+                            type="button"
+                            onClick={() => {
+                              setCompressionLevel(level);
+                              setTargetKb('');
+                            }}
+                            className={`py-2 px-3 text-xs font-bold rounded-xl border transition capitalize ${
+                              compressionLevel === level && !targetKb ? 'bg-red-600 text-white border-red-600' : 'bg-white text-slate-700 border-slate-300'
+                            }`}
+                          >
+                            {level}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">
+                        Or Target Specific File Size (KB)
+                      </label>
+                      <input
+                        type="number"
+                        min={10}
+                        placeholder="e.g. 33 (in KB)"
+                        value={targetKb}
+                        onChange={(e) => setTargetKb(e.target.value)}
+                        className="w-full px-4 py-2.5 bg-white border border-slate-300 rounded-xl text-sm outline-none focus:ring-2 focus:ring-red-500 font-mono"
+                      />
+                      <span className="text-[11px] text-slate-500 mt-1 block">
+                        SpikeDocs will automatically compress images and optimize streams to aim for your target size.
+                      </span>
                     </div>
                   </div>
                 )}
