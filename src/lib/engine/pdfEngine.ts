@@ -255,7 +255,10 @@ export async function protectPDF(file: File, userPassword: string): Promise<Uint
   try {
     const { createQpdf } = await import('@mssio/qpdf-wasm');
     const wasmUrl = typeof window !== 'undefined' ? `${window.location.origin}/wasm/qpdf.wasm` : undefined;
-    const qpdf = await createQpdf(wasmUrl ? { wasmUrl } : undefined);
+    const qpdf = await createQpdf({
+      wasmUrl,
+      inline: true,
+    });
     const res = await qpdf.encrypt(fileBytes, {
       userPassword,
       ownerPassword: userPassword + '_owner',
@@ -264,9 +267,8 @@ export async function protectPDF(file: File, userPassword: string): Promise<Uint
     qpdf.terminate();
     return res.output;
   } catch (err) {
-    console.warn('qpdf-wasm encryption fallback to stream packaging:', err);
-    const pdfDoc = await PDFDocument.load(fileBytes, { ignoreEncryption: true });
-    return await pdfDoc.save({ useObjectStreams: true });
+    console.error('qpdf-wasm encryption error:', err);
+    throw new Error('Encryption failed. Please check the file and try again.');
   }
 }
 
@@ -278,16 +280,18 @@ export async function unlockPDF(file: File, password: string): Promise<Uint8Arra
   try {
     const { createQpdf } = await import('@mssio/qpdf-wasm');
     const wasmUrl = typeof window !== 'undefined' ? `${window.location.origin}/wasm/qpdf.wasm` : undefined;
-    const qpdf = await createQpdf(wasmUrl ? { wasmUrl } : undefined);
+    const qpdf = await createQpdf({
+      wasmUrl,
+      inline: true,
+    });
     const res = await qpdf.decrypt(fileBytes, {
       password,
     });
     qpdf.terminate();
     return res.output;
   } catch (err) {
-    console.warn('qpdf-wasm decrypt fallback:', err);
-    const pdfDoc = await PDFDocument.load(fileBytes, { ignoreEncryption: true });
-    return await pdfDoc.save();
+    console.error('qpdf-wasm decrypt error:', err);
+    throw new Error('Incorrect password or unable to unlock file.');
   }
 }
 
