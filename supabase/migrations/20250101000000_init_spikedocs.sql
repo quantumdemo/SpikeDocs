@@ -49,6 +49,16 @@ CREATE TABLE IF NOT EXISTS public.daily_usage (
   UNIQUE(user_id, usage_date)
 );
 
+-- IP Daily Usage Counter (Prevents Incognito / Guest Abuse across tabs & private windows)
+CREATE TABLE IF NOT EXISTS public.ip_daily_usage (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  ip_address TEXT NOT NULL,
+  usage_date DATE DEFAULT CURRENT_DATE NOT NULL,
+  upload_count INT DEFAULT 0 NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
+  UNIQUE(ip_address, usage_date)
+);
+
 -- 5. Admin Audit Logs Table
 CREATE TABLE IF NOT EXISTS public.admin_audit_logs (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
@@ -65,6 +75,7 @@ CREATE TABLE IF NOT EXISTS public.admin_audit_logs (
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.subscriptions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.daily_usage ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.ip_daily_usage ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.admin_audit_logs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.admin_allowlist ENABLE ROW LEVEL SECURITY;
 

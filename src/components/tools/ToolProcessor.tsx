@@ -81,6 +81,22 @@ export function ToolProcessor({ tool, onProcess }: ToolProcessorProps) {
         return;
       }
 
+      // Pre-check with IP rate-limiting backend
+      if (!isProUser) {
+        fetch('/api/usage/check', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ fileCount: selected.length, increment: false }),
+        })
+          .then(res => res.json())
+          .then(data => {
+            if (!data.allowed) {
+              setError(data.error || 'Your IP address has reached the 5 daily free upload limit. Please sign in or upgrade to SpikeDocs Pro.');
+            }
+          })
+          .catch(() => {});
+      }
+
       setFiles(selected);
       setError(null);
       setResult(null);
@@ -95,6 +111,21 @@ export function ToolProcessor({ tool, onProcess }: ToolProcessorProps) {
       if (!isProUser && dailyUploads + selected.length > 5) {
         setError('Free tier limit reached (maximum 5 files per day). Please upgrade to SpikeDocs Pro for unlimited uploads.');
         return;
+      }
+
+      if (!isProUser) {
+        fetch('/api/usage/check', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ fileCount: selected.length, increment: false }),
+        })
+          .then(res => res.json())
+          .then(data => {
+            if (!data.allowed) {
+              setError(data.error || 'Your IP address has reached the 5 daily free upload limit. Please sign in or upgrade to SpikeDocs Pro.');
+            }
+          })
+          .catch(() => {});
       }
 
       setFiles(selected);
@@ -123,6 +154,24 @@ export function ToolProcessor({ tool, onProcess }: ToolProcessorProps) {
     if (!isProUser && dailyUploads >= 5) {
       setError('You have used all 5 free daily uploads. Upgrade to SpikeDocs Pro for unlimited access.');
       return;
+    }
+
+    // Check IP rate limiter
+    if (!isProUser) {
+      try {
+        const ipCheckRes = await fetch('/api/usage/check', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ fileCount: files.length, increment: false }),
+        });
+        const ipCheckData = await ipCheckRes.json();
+        if (!ipCheckData.allowed) {
+          setError(ipCheckData.error || 'Your IP address has reached the 5 daily upload limit. Please sign in or upgrade to continue.');
+          return;
+        }
+      } catch (err) {
+        console.warn('IP check bypass on network failure:', err);
+      }
     }
 
     setIsProcessing(true);
@@ -160,11 +209,18 @@ export function ToolProcessor({ tool, onProcess }: ToolProcessorProps) {
       const res = await onProcess(files, options);
       setResult(res);
 
-      // Increment daily upload counter for free users
+      // Increment daily upload counter for free users (Local and IP level)
       if (!isProUser && typeof window !== 'undefined') {
         const nextCount = dailyUploads + files.length;
         setDailyUploads(nextCount);
         localStorage.setItem('spikedocs_daily_uploads', nextCount.toString());
+
+        // Increment IP backend counter to prevent incognito circumvention
+        fetch('/api/usage/check', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ fileCount: files.length, increment: true }),
+        }).catch(() => {});
       }
     } catch (err: any) {
       console.error(err);
